@@ -93,6 +93,334 @@
       "tier": "3",
       "color": "#0091ff",
       "visible": true
+    },
+    {
+      "px": 256,
+      "py": 882,
+      "name": "Observatory",
+      "tier": "2",
+      "color": "#a855f7",
+      "visible": true
+    },
+    {
+      "px": 187,
+      "py": 1020,
+      "name": "Oil Refinery",
+      "tier": "2",
+      "color": "#a855f7",
+      "visible": true
+    },
+    {
+      "px": 154,
+      "py": 1139,
+      "name": "Greenhouse",
+      "tier": "2",
+      "color": "#a855f7",
+      "visible": true
+    },
+    {
+      "px": 137,
+      "py": 731,
+      "name": "Bunkbed Hideout",
+      "tier": "3",
+      "color": "#0091ff",
+      "visible": true
+    },
+    {
+      "px": 275,
+      "py": 649,
+      "name": "Rusted Container",
+      "tier": "3",
+      "color": "#0091ff",
+      "visible": true
+    },
+    {
+      "px": 333,
+      "py": 254,
+      "name": "Police Station",
+      "tier": "2",
+      "color": "#a855f7",
+      "visible": true
+    },
+    {
+      "px": 660,
+      "py": 447,
+      "name": "Laboratory",
+      "tier": "1",
+      "color": "#facc15",
+      "visible": true
+    },
+    {
+      "px": 1439,
+      "py": 492,
+      "name": "Necropolis",
+      "tier": "1",
+      "color": "#facc15",
+      "visible": true
+    },
+    {
+      "px": 1890,
+      "py": 786,
+      "name": "Bunker",
+      "tier": "1",
+      "color": "#facc15",
+      "visible": true
+    },
+    {
+      "px": 1581,
+      "py": 548,
+      "name": "Ruined House",
+      "tier": "3",
+      "color": "#0091ff",
+      "visible": true
+    },
+    {
+      "px": 1498,
+      "py": 606,
+      "name": "Crashed Truck",
+      "tier": "3",
+      "color": "#0091ff",
+      "visible": true
+    },
+    {
+      "px": 1419,
+      "py": 764,
+      "name": "Decrepid Barracks",
+      "tier": "3",
+      "color": "#0091ff",
+      "visible": true
+    },
+    {
+      "px": 992,
+      "py": 874,
+      "name": "Roofless House",
+      "tier": "3",
+      "color": "#0091ff",
+      "visible": true
+    },
+    {
+      "px": 1164,
+      "py": 777,
+      "name": "Crumbling House",
+      "tier": "3",
+      "color": "#0091ff",
+      "visible": true
+    },
+    {
+      "px": 1301,
+      "py": 899,
+      "name": "Crashed Plane",
+      "tier": "3",
+      "color": "#0091ff",
+      "visible": true
+    },
+    {
+      "px": 1149,
+      "py": 936,
+      "name": "Storage Vault",
+      "tier": "2",
+      "color": "#a855f7",
+      "visible": true
+    },
+    {
+      "px": 740,
+      "py": 638,
+      "name": "Medical Tent",
+      "tier": "2",
+      "color": "#a855f7",
+      "visible": true
+    },
+    {
+      "px": 1321,
+      "py": 234,
+      "name": "Cozy Hideout",
+      "tier": "3",
+      "color": "#0091ff",
+      "visible": true
+    },
+    {
+      "px": 1323,
+      "py": 374,
+      "name": "Red Container",
+      "tier": "3",
+      "color": "#0091ff",
+      "visible": true
+    },
+    {
+      "px": 1492,
+      "py": 303,
+      "name": "Rusted Church",
+      "tier": "3",
+      "color": "#0091ff",
+      "visible": true
+    },
+    {
+      "px": 1556,
+      "py": 118,
+      "name": "Radio Station",
+      "tier": "3",
+      "color": "#0091ff",
+      "visible": true
+    },
+    {
+      "px": 1807,
+      "py": 159,
+      "name": "Radio Tower",
+      "tier": "2",
+      "color": "#a855f7",
+      "visible": true
+    },
+    {
+      "px": 1915,
+      "py": 200,
+      "name": "Laboratory",
+      "tier": "1",
+      "color": "#facc15",
+      "visible": true
+    },
+    {
+      "px": 1963,
+      "py": 108,
+      "name": "Roofless House",
+      "tier": "3",
+      "color": "#0091ff",
+      "visible": true
+    },
+    {
+      "px": 1824,
+      "py": 291,
+      "name": "Ruined House",
+      "tier": "3",
+      "color": "#0091ff",
+      "visible": true
+    },
+    {
+      "px": 1977,
+      "py": 291,
+      "name": "Crashed Truck",
+      "tier": "3",
+      "color": "#0091ff",
+      "visible": true
+    },
+    {
+      "px": 1926,
+      "py": 394,
+      "name": "Crashed Truck",
+      "tier": "3",
+      "color": "#0091ff",
+      "visible": true
+    },
+    {
+      "px": 2226,
+      "py": 354,
+      "name": "Deserted Watch Tower",
+      "tier": "3",
+      "color": "#0091ff",
+      "visible": true
+    },
+    {
+      "px": 2316,
+      "py": 338,
+      "name": "Ruined House",
+      "tier": "3",
+      "color": "#0091ff",
+      "visible": true
+    },
+    {
+      "px": 2404,
+      "py": 390,
+      "name": "Cozy Hideout",
+      "tier": "3",
+      "color": "#0091ff",
+      "visible": true
+    },
+    {
+      "px": 2335,
+      "py": 518,
+      "name": "Abandoned Manor",
+      "tier": "3",
+      "color": "#0091ff",
+      "visible": true
+    },
+    {
+      "px": 2050,
+      "py": 508,
+      "name": "Abandoned Windmill",
+      "tier": "3",
+      "color": "#0091ff",
+      "visible": true
+    },
+    {
+      "px": 2138,
+      "py": 506,
+      "name": "Cozy Hideout",
+      "tier": "3",
+      "color": "#0091ff",
+      "visible": true
+    },
+    {
+      "px": 1922,
+      "py": 892,
+      "name": "Blacksmith Forge",
+      "tier": "3",
+      "color": "#0091ff",
+      "visible": true
+    },
+    {
+      "px": 1791,
+      "py": 876,
+      "name": "Rusted Motel",
+      "tier": "2",
+      "color": "#a855f7",
+      "visible": true
+    },
+    {
+      "px": 1611,
+      "py": 1170,
+      "name": "Military Base",
+      "tier": "1",
+      "color": "#facc15",
+      "visible": true
+    },
+    {
+      "px": 1707,
+      "py": 1257,
+      "name": "Watch Tower",
+      "tier": "3",
+      "color": "#0091ff",
+      "visible": true
+    },
+    {
+      "px": 1533,
+      "py": 1259,
+      "name": "Police Station",
+      "tier": "2",
+      "color": "#a855f7",
+      "visible": true
+    },
+    {
+      "px": 1437,
+      "py": 1299,
+      "name": "Wooden Hut",
+      "tier": "3",
+      "color": "#0091ff",
+      "visible": true
+    },
+    {
+      "px": 1258,
+      "py": 1296,
+      "name": "Wooden Hut",
+      "tier": "3",
+      "color": "#0091ff",
+      "visible": true
+    },
+    {
+      "px": 1439,
+      "py": 1429,
+      "name": "Greenhouse",
+      "tier": "2",
+      "color": "#a855f7",
+      "visible": true
     }
   ]
 }
