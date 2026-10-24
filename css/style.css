@@ -1,0 +1,54 @@
+:root{--bg:#10151d;--panel:#171e29;--card:#1e2735;--line:#2b384b;--txt:#e6ebf2;--mut:#8b99ad;--acc:#4ade80;--acc2:#22c55e}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--txt);font:14px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.app{display:flex;height:100%}
+.stage{position:relative;flex:1;min-width:0;overflow:hidden;background:#0b0f15}
+canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none;cursor:crosshair}
+canvas.drag{cursor:grabbing}
+.panel{width:340px;overflow:auto;background:var(--panel);border-left:1px solid var(--line);padding:14px}
+h1{font-size:17px;margin:0 0 10px}
+h2{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--mut);margin:0 0 8px}
+section{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:10px}
+.row{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+label{display:flex;flex-direction:column;gap:3px;font-size:12px;color:var(--mut)}
+label.chk{flex-direction:row;align-items:center;gap:6px;color:var(--txt)}
+input[type=number],input[type=text]{background:#0f151e;border:1px solid var(--line);color:var(--txt);border-radius:7px;padding:7px;width:100%}
+input[type=color]{width:100%;height:33px;border:1px solid var(--line);border-radius:7px;background:#0f151e;padding:2px}
+input.bad{border-color:#f87171;background:#2a1519}
+button{background:#263248;color:var(--txt);border:1px solid var(--line);border-radius:8px;padding:7px 10px;cursor:pointer;font:inherit}
+button:hover{background:#2f3e58}button.on{background:#1d4f33;border-color:var(--acc2)}
+button.primary{background:var(--acc2);color:#04210f;border-color:var(--acc2);font-weight:600}
+.result{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0}
+.result div{background:#0f151e;border:1px solid var(--line);border-radius:8px;padding:8px;text-align:center}
+.result span{display:block;font-size:11px;color:var(--mut)}.result b{font-size:22px;color:var(--acc);font-variant-numeric:tabular-nums}
+code{display:block;margin-top:8px;word-break:break-all;font-size:12px}
+.muted{color:var(--mut)}.small{font-size:12px}
+.mlist{list-style:none;margin:8px 0 0;padding:0;max-height:180px;overflow:auto}
+.mlist li{display:flex;align-items:center;gap:6px;padding:5px 0;border-bottom:1px solid var(--line);font-size:12px}
+.mlist .dot{width:12px;height:12px;border-radius:50%;flex:none;border:1px solid #fff8}
+.mlist .nm{flex:1;min-width:0;cursor:pointer}.mlist .nm small{display:block;color:var(--mut)}
+.mlist button{padding:2px 7px}
+.hud{position:absolute;left:10px;bottom:10px;background:#000a;padding:5px 9px;border-radius:7px;font-variant-numeric:tabular-nums;pointer-events:none}
+.zoombar{position:absolute;left:10px;top:10px;display:flex;flex-direction:column;gap:4px}
+.zoombar button{width:36px;height:36px;font-size:18px;padding:0}
+.drop{position:absolute;inset:10px;border:3px dashed var(--acc);border-radius:14px;display:none;align-items:center;justify-content:center;font-size:22px;background:#000a;pointer-events:none}
+.drop.show{display:flex}
+.toast{position:absolute;top:12px;left:50%;transform:translateX(-50%);background:#111c;border:1px solid var(--line);padding:8px 14px;border-radius:8px;opacity:0;transition:.25s;pointer-events:none;max-width:80%}
+.toast.show{opacity:1}.toast.err{border-color:#f87171;color:#fecaca}
+.toggle{display:none;position:absolute;right:10px;top:10px}
+@media(max-width:800px){
+ .app{flex-direction:column}
+ .stage{flex:1 1 55%}.panel{width:100%;flex:0 0 45%;border-left:0;border-top:1px solid var(--line)}
+ .panel.hidden{display:none}.toggle{display:block}
+}
+
+select{background:#0f151e;border:1px solid var(--line);color:var(--txt);border-radius:7px;padding:7px;width:100%}
+.public .edit-only{display:none!important}
+.mlist{max-height:320px;margin-top:8px}
+.mlist details{margin-left:0}.mlist details details{margin-left:12px}
+.mlist summary{display:flex;align-items:center;gap:6px;padding:4px 0;cursor:pointer;font-size:13px}
+.mlist summary .t{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis}
+.mlist summary .n{color:var(--mut);font-size:11px}
+.mlist .pt{display:flex;align-items:center;gap:6px;padding:3px 0 3px 14px;font-size:12px;border-bottom:1px solid var(--line)}
+.mlist .pt .nm{flex:1;cursor:pointer}

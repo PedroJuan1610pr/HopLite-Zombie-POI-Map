@@ -1,0 +1,98 @@
+{
+  "cfg": {
+    "xmin": -3499,
+    "xmax": 3499,
+    "zmin": -3499,
+    "zmax": 3499
+  },
+  "markers": [
+    {
+      "px": 261,
+      "py": 167,
+      "name": "Decrepid Barracks",
+      "tier": "3",
+      "color": "#0091ff",
+      "visible": true
+    },
+    {
+      "px": 463,
+      "py": 148,
+      "name": "Cozy Hideout",
+      "tier": "3",
+      "color": "#0091ff",
+      "visible": true
+    },
+    {
+      "px": 466,
+      "py": 282,
+      "name": "Watch Tower",
+      "tier": "3",
+      "color": "#0091ff",
+      "visible": true
+    },
+    {
+      "px": 787,
+      "py": 371,
+      "name": "Crashed Plane",
+      "tier": "3",
+      "color": "#0091ff",
+      "visible": true
+    },
+    {
+      "px": 938,
+      "py": 281,
+      "name": "Deserted Watch Tower",
+      "tier": "3",
+      "color": "#0091ff",
+      "visible": true
+    },
+    {
+      "px": 810,
+      "py": 247,
+      "name": "Collapsed House",
+      "tier": "3",
+      "color": "#0091ff",
+      "visible": true
+    },
+    {
+      "px": 1035,
+      "py": 96,
+      "name": "Abandoned Manor",
+      "tier": "3",
+      "color": "#0091ff",
+      "visible": true
+    },
+    {
+      "px": 371,
+      "py": 1016,
+      "name": "Ruined House",
+      "tier": "3",
+      "color": "#0091ff",
+      "visible": true
+    },
+    {
+      "px": 422,
+      "py": 892,
+      "name": "Ruined House",
+      "tier": "3",
+      "color": "#0091ff",
+      "visible": true
+    },
+    {
+      "px": 674,
+      "py": 1002,
+      "name": "Watch Tower",
+      "tier": "3",
+      "color": "#0091ff",
+      "visible": true
+    },
+    {
+      "px": 540,
+      "py": 1039,
+      "name": "Wooden Hut",
+      "tier": "3",
+      "color": "#0091ff",
+      "visible": true
+    }
+  ]
+}

@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Minecraft Coordinate Mapper</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="app">
+  <div class="stage" id="stage">
+    <canvas id="map"></canvas>
+    <div class="hud" id="hover">—</div>
+    <div class="zoombar">
+      <button id="zin" title="Acercar">+</button><button id="zout" title="Alejar">−</button><button id="zfit" title="Centrar y ajustar">⤢</button>
+    </div>
+    <div class="drop" id="drop">Suelta la imagen aquí</div>
+    <div class="toast" id="toast"></div>
+    <button class="toggle" id="toggle">☰ Panel</button>
+  </div>
+  <aside class="panel" id="panel">
+    <h1>⛏ Coordinate Mapper</h1>
+    <section>
+      <h2>Imagen</h2>
+      <div class="row"><button id="load" class="primary">Cargar imagen…</button><button id="defimg">Mapa predeterminado</button></div>
+      <input type="file" id="file" accept="image/png,image/jpeg,image/webp" hidden>
+      <p class="muted" id="dims">Cargando…</p>
+    </section>
+    <section>
+      <h2>Orientación</h2>
+      <div class="row"><button id="fh">↔ Horizontal</button><button id="fv">↕ Vertical</button><button id="fr">Restablecer</button></div>
+    </section>
+    <section>
+      <h2>Píxel seleccionado</h2>
+      <div class="grid2">
+        <label>Píxel X<input id="px" type="number" step="1"></label>
+        <label>Píxel Y<input id="py" type="number" step="1"></label>
+      </div>
+      <div class="result"><div><span>X</span><b id="rx">—</b></div><div><span>Z</span><b id="rz">—</b></div></div>
+      <div class="row">
+        <button id="c1">X: , Z:</button><button id="c2">X Z</button><button id="c3">/tp</button>
+      </div>
+      <code id="cmd" class="muted">/tp @s ~ ~ ~</code>
+    </section>
+    <section class="edit-only">
+      <h2>Límites de Minecraft</h2>
+      <div class="grid2">
+        <label>X mín<input id="xmin" type="number"></label><label>X máx<input id="xmax" type="number"></label>
+        <label>Z mín<input id="zmin" type="number"></label><label>Z máx<input id="zmax" type="number"></label>
+      </div>
+      <div class="row"><button id="rcfg">Restablecer configuración</button></div>
+    </section>
+    <section>
+      <h2>Cuadrícula</h2>
+      <div class="grid2">
+        <label class="chk"><input type="checkbox" id="grid"> Mostrar</label>
+        <label>Intervalo (bloques)<input id="gstep" type="number" min="1" value="500"></label>
+      </div>
+    </section>
+    <section>
+      <h2>Puntos de interés <span class="muted" id="mcount"></span></h2>
+      <div class="edit-only">
+        <div class="grid2">
+          <label>Nombre<input id="mname" type="text" list="dlname" maxlength="40" placeholder="Aldea, Templo…"></label>
+          <label>Tier<input id="mtier" type="text" list="dltier" maxlength="20" placeholder="1, 2, 3…"></label>
+          <div class="row" style="align-items:end;margin:0"><button id="madd" class="primary">Guardar punto</button></div>
+        </div>
+        <datalist id="dlname"></datalist><datalist id="dltier"></datalist>
+        <p class="muted small">Haz clic en el mapa y pulsa «Guardar punto». Nombre y tier se conservan para añadir varios seguidos. Color automático: Tier 1 amarillo · Tier 2 morado · Tier 3 azul.</p>
+      </div>
+      <div class="grid2">
+        <label>Agrupar<select id="mgroup"><option value="nt">Nombre › Tier</option><option value="tn">Tier › Nombre</option></select></label>
+        <label>Buscar<input id="msearch" type="text" placeholder="filtrar…"></label>
+      </div>
+      <div id="mlist" class="mlist"></div>
+      <div class="row edit-only"><button id="mexp">Exportar pois.json</button><button id="mcsv">CSV</button><button id="mimp">Importar JSON</button></div>
+      <input type="file" id="mfile" accept=".json,application/json" hidden>
+    </section>
+    <section class="muted small">
+      <h2>Cómo funciona</h2>
+      Las coordenadas se calculan siempre sobre el píxel <i>original</i> de la imagen. Zoom, desplazamiento e inversión solo cambian cómo se dibuja; nunca alteran el cálculo.
+    </section>
+  </aside>
+</div>
+<script src="js/app.js"></script>
+</body>
+</html>
