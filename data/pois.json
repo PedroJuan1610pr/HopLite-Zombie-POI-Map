@@ -1813,6 +1813,22 @@
       "tier": "2",
       "color": "#a855f7",
       "visible": true
+    },
+    {
+      "px": 1698,
+      "py": 1438,
+      "name": "Crashed Truck",
+      "tier": "3",
+      "color": "#0091ff",
+      "visible": true
+    },
+    {
+      "px": 1812,
+      "py": 1404,
+      "name": "Blacksmith Forge",
+      "tier": "3",
+      "color": "#0091ff",
+      "visible": true
     }
   ]
 }
