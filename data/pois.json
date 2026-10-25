@@ -701,6 +701,30 @@
       "tier": "2",
       "color": "#a855f7",
       "visible": true
+    },
+    {
+      "px": 373,
+      "py": 2906,
+      "name": "Base",
+      "tier": "4",
+      "color": "#ef4444",
+      "visible": true
+    },
+    {
+      "px": 1949,
+      "py": 270,
+      "name": "Base",
+      "tier": "4",
+      "color": "#ef4444",
+      "visible": true
+    },
+    {
+      "px": 1201,
+      "py": 29,
+      "name": "Base",
+      "tier": "4",
+      "color": "#ef4444",
+      "visible": true
     }
   ]
 }

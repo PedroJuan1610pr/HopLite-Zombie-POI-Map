@@ -24,6 +24,45 @@ const scrToImg = (sx, sy) => {
   return [S.fh ? S.W - u : u, S.fv ? S.H - v : v];
 };
 
+/* ---- Publicación en GitHub (solo modo editor) ---- */
+const GH_KEY = 'mcmapper.gh', gh = { owner: '', repo: '', token: '', auto: true };
+let prevM = '', pubTimer = 0, pubBusy = false;
+const mk = () => JSON.stringify(S.markers.map(m => [m.px, m.py, m.name, m.tier]));
+const pubData = () => JSON.stringify({ cfg: S.cfg, markers: S.markers.map(({ px, py, name, tier, color }) => ({ px, py, name, tier, color })) }, null, 2) + '\n';
+function ghStatus(t, err) { const e = $('ghstatus'); e.textContent = t; e.style.color = err ? '#fca5a5' : ''; }
+function ghInit() {
+  try { Object.assign(gh, JSON.parse(localStorage.getItem(GH_KEY) || '{}')); } catch (e) {}
+  if (!gh.owner && location.hostname.endsWith('.github.io')) { gh.owner = location.hostname.split('.')[0]; gh.repo = location.pathname.split('/')[1] || ''; }
+  $('ghowner').value = gh.owner; $('ghrepo').value = gh.repo; $('ghtoken').value = gh.token; $('ghauto').checked = gh.auto;
+  const store = () => { gh.owner = $('ghowner').value.trim(); gh.repo = $('ghrepo').value.trim(); gh.token = $('ghtoken').value.trim(); gh.auto = $('ghauto').checked;
+    try { localStorage.setItem(GH_KEY, JSON.stringify(gh)); } catch (e) {} };
+  ['ghowner', 'ghrepo', 'ghtoken', 'ghauto'].forEach(id => $(id).oninput = $(id).onchange = store);
+  $('ghpub').onclick = () => { store(); clearTimeout(pubTimer); publish(); };
+}
+async function publish() {
+  if (!gh.token || !gh.owner || !gh.repo) return ghStatus('Falta usuario, repositorio o token.', true);
+  if (pubBusy) { pubTimer = setTimeout(publish, 1500); return; }
+  pubBusy = true; ghStatus('Publicando…');
+  const url = `https://api.github.com/repos/${gh.owner}/${gh.repo}/contents/data/pois.json`;
+  const H = { Authorization: 'Bearer ' + gh.token, Accept: 'application/vnd.github+json' };
+  try {
+    const bytes = new TextEncoder().encode(pubData()); let bin = ''; bytes.forEach(b => bin += String.fromCharCode(b));
+    let code = 0;
+    for (let t = 0; t < 2; t++) {
+      const g = await fetch(url, { headers: H, cache: 'no-store' }); let sha;
+      if (g.ok) sha = (await g.json()).sha; else if (g.status !== 404) throw g.status;
+      const p = await fetch(url, { method: 'PUT', headers: { ...H, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: 'Actualizar POIs desde la web', content: btoa(bin), sha }) });
+      if (p.ok) { ghStatus('Publicado ✔ La web pública se actualiza en 1-2 min.'); toast('Publicado en GitHub'); return; }
+      code = p.status; if (code !== 409 && code !== 422) break;
+    }
+    throw code;
+  } catch (c) {
+    ghStatus(c === 401 ? 'Token no válido o caducado.' : (c === 403 || c === 404) ? 'Sin permiso: el token necesita «Contents: Read and write» sobre este repositorio.' :
+      'No se pudo publicar (' + (c && c.message ? 'sin conexión' : c) + ').', true);
+  } finally { pubBusy = false; }
+}
+
 function toast(msg, err) {
   const t = $('toast'); t.textContent = msg; t.className = 'toast show' + (err ? ' err' : '');
   clearTimeout(toast.t); toast.t = setTimeout(() => t.className = 'toast', 2600);
@@ -40,6 +79,8 @@ function save() {
     localStorage.setItem(KEY, JSON.stringify({ cfg: S.cfg, fh: S.fh, fv: S.fv, grid: S.grid, gstep: S.gstep }));
     if (EDIT) localStorage.setItem(KEY + '.m', JSON.stringify(S.markers));
   } catch (e) {}
+  const k = mk();
+  if (EDIT && k !== prevM) { prevM = k; if (gh.auto && gh.token) { clearTimeout(pubTimer); pubTimer = setTimeout(publish, 2000); } }
 }
 function loadSaved() {
   try {
@@ -56,7 +97,7 @@ async function loadPois() {
     const r = await fetch('data/pois.json', { cache: 'no-cache' }); if (!r.ok) return;
     const d = await r.json();
     if (!EDIT && d.cfg) Object.keys(DEF).forEach(k => { if (Number.isFinite(d.cfg[k])) S.cfg[k] = d.cfg[k]; });
-    if (!EDIT || !S.markers.length) S.markers = (Array.isArray(d.markers) ? d.markers : []).filter(validMarker).map(norm);
+    if (!EDIT || !S.markers.length) { S.markers = (Array.isArray(d.markers) ? d.markers : []).filter(validMarker).map(norm); prevM = mk(); }
     cfgToUI(); updateResult(); renderList(); draw();
   } catch (e) {}
 }
@@ -307,7 +348,7 @@ addEventListener('drop', e => { e.preventDefault(); dc = 0; $('drop').classList.
 $('toggle').onclick = () => { $('panel').classList.toggle('hidden'); setTimeout(() => { resize(); fitView(); }, 50); };
 addEventListener('resize', resize);
 
-loadSaved(); cfgToUI(); flipUI(); $('grid').checked = S.grid; $('gstep').value = S.gstep; renderList();
+loadSaved(); prevM = mk(); if (EDIT) ghInit(); cfgToUI(); flipUI(); $('grid').checked = S.grid; $('gstep').value = S.gstep; renderList();
 if (innerWidth <= 800) $('panel').classList.add('hidden');
 resize(); loadDefault(); loadPois();
 })();

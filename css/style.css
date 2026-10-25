@@ -52,3 +52,5 @@ select{background:#0f151e;border:1px solid var(--line);color:var(--txt);border-r
 .mlist summary .n{color:var(--mut);font-size:11px}
 .mlist .pt{display:flex;align-items:center;gap:6px;padding:3px 0 3px 14px;font-size:12px;border-bottom:1px solid var(--line)}
 .mlist .pt .nm{flex:1;cursor:pointer}
+
+.gh{margin-top:8px}.gh summary{cursor:pointer;font-size:13px;margin-bottom:6px}.gh label{margin-top:6px}
