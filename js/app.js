@@ -29,7 +29,9 @@ function toast(msg, err) {
   clearTimeout(toast.t); toast.t = setTimeout(() => t.className = 'toast', 2600);
 }
 const validMarker = m => m && Number.isFinite(m.px) && Number.isFinite(m.py);
-const TIER_COLORS = { 1: '#facc15', 2: '#a855f7', 3: '#0091ff' };
+const TIER_COLORS = { 1: '#facc15', 2: '#a855f7', 3: '#0091ff', 4: '#ef4444' };
+const TIER_NAMES = { 4: 'Base Enemiga' };
+const tierLabel = t => { const n = TIER_NAMES[(String(t).match(/\d+/) || [])[0]]; return n ? t + ' · ' + n : t; };
 const tierColor = t => TIER_COLORS[(String(t).match(/\d+/) || [])[0]] || '#9ca3af';
 const norm = m => ({ px: Math.round(m.px), py: Math.round(m.py), name: String(m.name || m.label || '').slice(0, 40), tier: String(m.tier || '').slice(0, 20),
   color: tierColor(m.tier), visible: m.visible !== false });
@@ -79,7 +81,7 @@ function draw() {
   ctx.drawImage(S.img, 0, 0, S.W, S.H);
   ctx.setTransform(d, 0, 0, d, 0, 0);
   if (S.grid) drawGrid();
-  S.markers.forEach(m => { if (m.visible !== false) pin(m.px + .5, m.py + .5, m.color || '#ff5a5a', S.z > S.fit * 2.5 ? m.name + (m.tier ? ' · ' + m.tier : '') : ''); });
+  S.markers.forEach(m => { if (m.visible !== false) pin(m.px + .5, m.py + .5, m.color || '#ff5a5a', S.z > S.fit * 2.5 ? m.name + (m.tier ? ' · ' + tierLabel(m.tier) : '') : ''); });
   if (S.sel) pin(S.sel[0] + .5, S.sel[1] + .5, '#fde047', null, true);
 }
 function drawGrid() {
@@ -224,22 +226,22 @@ function pointRow(o) {
 function renderList() {
   const ul = $('mlist'); ul.textContent = '';
   const q = $('msearch').value.trim().toLowerCase(), mode = $('mgroup').value;
-  const items = S.markers.map((m, i) => ({ m, i })).filter(({ m }) => !q || (m.name + ' ' + m.tier).toLowerCase().includes(q));
+  const items = S.markers.map((m, i) => ({ m, i })).filter(({ m }) => !q || (m.name + ' ' + tierLabel(m.tier)).toLowerCase().includes(q));
   $('mcount').textContent = `· ${items.length}/${S.markers.length}`;
   const k1 = mode === 'nt' ? 'name' : 'tier', k2 = mode === 'nt' ? 'tier' : 'name';
   const by = (arr, k) => { const g = new Map();
     arr.forEach(o => { const key = o.m[k] || (k === 'name' ? '(sin nombre)' : '(sin tier)'); if (!g.has(key)) g.set(key, []); g.get(key).push(o); });
     return [...g].sort((x, y) => x[0].localeCompare(y[0], 'es', { numeric: true })); };
   by(items, k1).forEach(([a, arrA]) => {
-    const f1 = folder(a, arrA, mode + '|' + a, q);
+    const f1 = folder(k1 === 'tier' ? tierLabel(a) : a, arrA, mode + '|' + a, q);
     by(arrA, k2).forEach(([b, arrB]) => {
-      const f2 = folder(b, arrB, mode + '|' + a + '|' + b, q);
+      const f2 = folder(k2 === 'tier' ? tierLabel(b) : b, arrB, mode + '|' + a + '|' + b, q);
       arrB.forEach(o => f2.appendChild(pointRow(o))); f1.appendChild(f2);
     });
     ul.appendChild(f1);
   });
   const fill = (id, k) => { const dl = $(id); dl.textContent = '';
-    [...new Set(S.markers.map(m => m[k]).filter(Boolean))].sort((x, y) => x.localeCompare(y, 'es', { numeric: true }))
+    [...new Set(S.markers.map(m => m[k]).concat(k === 'tier' ? ['1', '2', '3', '4'] : []).filter(Boolean))].sort((x, y) => x.localeCompare(y, 'es', { numeric: true }))
       .forEach(v => { const o = document.createElement('option'); o.value = v; dl.appendChild(o); }); };
   fill('dlname', 'name'); fill('dltier', 'tier');
 }
