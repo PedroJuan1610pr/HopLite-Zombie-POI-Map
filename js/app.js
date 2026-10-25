@@ -24,43 +24,43 @@ const scrToImg = (sx, sy) => {
   return [S.fh ? S.W - u : u, S.fv ? S.H - v : v];
 };
 
-/* ---- Publicación en GitHub (solo modo editor) ---- */
-const GH_KEY = 'mcmapper.gh', gh = { owner: '', repo: '', token: '', auto: true };
-let prevM = '', pubTimer = 0, pubBusy = false;
+/* ---- Guardado en carpeta local (File System Access API, solo modo editor) ---- */
+let dirH = null, prevM = '', saveTimer = 0;
+const FSA = !!window.showDirectoryPicker;
 const mk = () => JSON.stringify(S.markers.map(m => [m.px, m.py, m.name, m.tier]));
 const pubData = () => JSON.stringify({ cfg: S.cfg, markers: S.markers.map(({ px, py, name, tier, color }) => ({ px, py, name, tier, color })) }, null, 2) + '\n';
-function ghStatus(t, err) { const e = $('ghstatus'); e.textContent = t; e.style.color = err ? '#fca5a5' : ''; }
-function ghInit() {
-  try { Object.assign(gh, JSON.parse(localStorage.getItem(GH_KEY) || '{}')); } catch (e) {}
-  if (!gh.owner && location.hostname.endsWith('.github.io')) { gh.owner = location.hostname.split('.')[0]; gh.repo = location.pathname.split('/')[1] || ''; }
-  $('ghowner').value = gh.owner; $('ghrepo').value = gh.repo; $('ghtoken').value = gh.token; $('ghauto').checked = gh.auto;
-  const store = () => { gh.owner = $('ghowner').value.trim(); gh.repo = $('ghrepo').value.trim(); gh.token = $('ghtoken').value.trim(); gh.auto = $('ghauto').checked;
-    try { localStorage.setItem(GH_KEY, JSON.stringify(gh)); } catch (e) {} };
-  ['ghowner', 'ghrepo', 'ghtoken', 'ghauto'].forEach(id => $(id).oninput = $(id).onchange = store);
-  $('ghpub').onclick = () => { store(); clearTimeout(pubTimer); publish(); };
+const fsStatus = (t, err) => { const e = $('fsstatus'); e.textContent = t; e.style.color = err ? '#fca5a5' : ''; };
+const idb = () => new Promise((res, rej) => { const r = indexedDB.open('mcmapper', 1); r.onupgradeneeded = () => r.result.createObjectStore('h'); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
+const idbSet = async v => { const db = await idb(); return new Promise((res, rej) => { const t = db.transaction('h', 'readwrite'); t.objectStore('h').put(v, 'dir'); t.oncomplete = res; t.onerror = () => rej(t.error); }); };
+const idbGet = async () => { const db = await idb(); return new Promise((res, rej) => { const q = db.transaction('h').objectStore('h').get('dir'); q.onsuccess = () => res(q.result); q.onerror = () => rej(q.error); }); };
+function fsLabel() { fsStatus(dirH ? 'Carpeta: ' + dirH.name : 'Ninguna carpeta elegida.'); }
+async function fsInit() {
+  if (!FSA) { $('fsinfo').textContent = 'Este navegador no permite guardar en carpetas. Usa Chrome o Edge, o el botón «Exportar pois.json».'; $('fspick').disabled = $('fssave').disabled = true; return; }
+  try { dirH = (await idbGet()) || null; } catch (e) {}
+  fsLabel(); if (dirH) fsStatus('Carpeta: ' + dirH.name + ' · pulsa «Guardar ahora» para reactivar el permiso en esta sesión.');
+  $('fspick').onclick = pickDir; $('fssave').onclick = () => saveLocal(true);
 }
-async function publish() {
-  if (!gh.token || !gh.owner || !gh.repo) return ghStatus('Falta usuario, repositorio o token.', true);
-  if (pubBusy) { pubTimer = setTimeout(publish, 1500); return; }
-  pubBusy = true; ghStatus('Publicando…');
-  const url = `https://api.github.com/repos/${gh.owner}/${gh.repo}/contents/data/pois.json`;
-  const H = { Authorization: 'Bearer ' + gh.token, Accept: 'application/vnd.github+json' };
+async function pickDir() {
+  try { dirH = await showDirectoryPicker({ mode: 'readwrite' }); await idbSet(dirH).catch(() => {}); await saveLocal(true); }
+  catch (e) { if (e.name !== 'AbortError') fsStatus('No se pudo abrir la carpeta.', true); }
+}
+async function saveLocal(user) {
+  if (!dirH) return fsStatus('Elige primero la carpeta del proyecto.', true);
   try {
-    const bytes = new TextEncoder().encode(pubData()); let bin = ''; bytes.forEach(b => bin += String.fromCharCode(b));
-    let code = 0;
-    for (let t = 0; t < 2; t++) {
-      const g = await fetch(url, { headers: H, cache: 'no-store' }); let sha;
-      if (g.ok) sha = (await g.json()).sha; else if (g.status !== 404) throw g.status;
-      const p = await fetch(url, { method: 'PUT', headers: { ...H, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: 'Actualizar POIs desde la web', content: btoa(bin), sha }) });
-      if (p.ok) { ghStatus('Publicado ✔ La web pública se actualiza en 1-2 min.'); toast('Publicado en GitHub'); return; }
-      code = p.status; if (code !== 409 && code !== 422) break;
+    let p = await dirH.queryPermission({ mode: 'readwrite' });
+    if (p !== 'granted') {
+      if (!user) return fsStatus('Pulsa «Guardar ahora» para dar permiso a la carpeta.', true);
+      p = await dirH.requestPermission({ mode: 'readwrite' }); if (p !== 'granted') return fsStatus('Permiso denegado.', true);
     }
-    throw code;
-  } catch (c) {
-    ghStatus(c === 401 ? 'Token no válido o caducado.' : (c === 403 || c === 404) ? 'Sin permiso: el token necesita «Contents: Read and write» sobre este repositorio.' :
-      'No se pudo publicar (' + (c && c.message ? 'sin conexión' : c) + ').', true);
-  } finally { pubBusy = false; }
+    let target = dirH;
+    if (dirH.name !== 'data') {
+      try { await dirH.getFileHandle('index.html'); } catch (e) { return fsStatus('Esa no parece la carpeta del proyecto (no tiene index.html). Elige otra.', true); }
+      target = await dirH.getDirectoryHandle('data', { create: true });
+    }
+    const f = await target.getFileHandle('pois.json', { create: true }), w = await f.createWritable();
+    await w.write(pubData()); await w.close();
+    fsStatus('Guardado en data/pois.json ✔ Ya puedes hacer commit y push.'); toast('Guardado en la carpeta local');
+  } catch (e) { fsStatus('No se pudo guardar: ' + (e.message || e.name), true); }
 }
 
 function toast(msg, err) {
@@ -80,7 +80,7 @@ function save() {
     if (EDIT) localStorage.setItem(KEY + '.m', JSON.stringify(S.markers));
   } catch (e) {}
   const k = mk();
-  if (EDIT && k !== prevM) { prevM = k; if (gh.auto && gh.token) { clearTimeout(pubTimer); pubTimer = setTimeout(publish, 2000); } }
+  if (EDIT && k !== prevM) { prevM = k; if (dirH && $('fsauto').checked) { clearTimeout(saveTimer); saveTimer = setTimeout(() => saveLocal(false), 800); } }
 }
 function loadSaved() {
   try {
@@ -348,7 +348,7 @@ addEventListener('drop', e => { e.preventDefault(); dc = 0; $('drop').classList.
 $('toggle').onclick = () => { $('panel').classList.toggle('hidden'); setTimeout(() => { resize(); fitView(); }, 50); };
 addEventListener('resize', resize);
 
-loadSaved(); prevM = mk(); if (EDIT) ghInit(); cfgToUI(); flipUI(); $('grid').checked = S.grid; $('gstep').value = S.gstep; renderList();
+loadSaved(); prevM = mk(); if (EDIT) fsInit(); cfgToUI(); flipUI(); $('grid').checked = S.grid; $('gstep').value = S.gstep; renderList();
 if (innerWidth <= 800) $('panel').classList.add('hidden');
 resize(); loadDefault(); loadPois();
 })();

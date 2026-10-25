@@ -73,16 +73,12 @@
         <label>Buscar<input id="msearch" type="text" placeholder="filtrar…"></label>
       </div>
       <div id="mlist" class="mlist"></div>
-      <details class="edit-only gh">
-        <summary>Publicar en GitHub</summary>
-        <div class="grid2">
-          <label>Usuario<input id="ghowner" type="text" autocomplete="off"></label>
-          <label>Repositorio<input id="ghrepo" type="text" autocomplete="off"></label>
-        </div>
-        <label>Token (solo se guarda en este navegador)<input id="ghtoken" type="password" autocomplete="off"></label>
-        <label class="chk"><input type="checkbox" id="ghauto"> Publicar automáticamente al cambiar puntos</label>
-        <div class="row"><button id="ghpub" class="primary">Publicar ahora</button></div>
-        <p class="muted small" id="ghstatus"></p>
+      <details class="edit-only gh" open>
+        <summary>Guardar en carpeta local</summary>
+        <p class="muted small" id="fsinfo">Elige la carpeta del proyecto (la que contiene index.html). Los cambios se guardan en data/pois.json y después haces commit y push.</p>
+        <div class="row"><button id="fspick">Elegir carpeta…</button><button id="fssave" class="primary">Guardar ahora</button></div>
+        <label class="chk"><input type="checkbox" id="fsauto" checked> Guardar automáticamente al cambiar puntos</label>
+        <p class="muted small" id="fsstatus"></p>
       </details>
       <div class="row edit-only"><button id="mexp">Exportar pois.json</button><button id="mcsv">CSV</button><button id="mimp">Importar JSON</button></div>
       <input type="file" id="mfile" accept=".json,application/json" hidden>
