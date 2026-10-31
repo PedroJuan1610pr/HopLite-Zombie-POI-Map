@@ -4,7 +4,7 @@ const $ = id => document.getElementById(id);
 const cv = $('map'), ctx = cv.getContext('2d'), stage = $('stage');
 const DEF = { xmin: -3499, xmax: 3499, zmin: -3499, zmax: 3499 };
 const S = { img: null, W: 0, H: 0, z: 1, ox: 0, oy: 0, fit: 1, fh: false, fv: false,
-  sel: null, me: null, explore: false, zone: null, markers: [], grid: false, gstep: 500, cfg: { ...DEF }, dpr: 1 };
+  sel: null, me: null, others: {}, explore: false, zone: null, markers: [], grid: false, gstep: 500, cfg: { ...DEF }, dpr: 1 };
 const KEY = 'mcmapper.v1';
 const EDIT = new URLSearchParams(location.search).has('editor');
 if (!EDIT) document.body.classList.add('public');
@@ -130,6 +130,7 @@ function draw() {
   if (S.explore && S.zone && zoneR() > 0) drawZone();
   S.markers.forEach(m => { if (m.visible !== false) pin(m.px + .5, m.py + .5, m.color || '#ff5a5a', S.z > S.fit * 2.5 ? m.name + (m.tier ? ' · ' + tierLabel(m.tier) : '') : ''); });
   if (S.sel) pin(S.sel[0] + .5, S.sel[1] + .5, '#fde047', null, true);
+  drawOthers();
   if (S.me) drawMe();
 }
 function drawGrid() {
@@ -386,6 +387,573 @@ $('pos').onpaste = () => setTimeout(() => locate(true), 0);
 $('pos').onkeydown = e => { if (e.key === 'Enter') locate(true); };
 $('posgo').onclick = () => locate(true);
 $('posclr').onclick = () => { $('pos').value = ''; locate(false); };
+
+/* ---- Posición en tiempo real (PlayerCoordsAPI) ---- */
+const LIVE_KEY = KEY + '.live';
+let liveOn = false, liveTimer = null, liveFail = 0;
+function livePort() { return Math.max(1, Math.min(65535, Number($('liveport').value) || 25565)); }
+function setLiveUI() {
+  const b = $('livetoggle');
+  if (!b) return;
+  b.textContent = liveOn ? 'Tiempo real ON' : 'Tiempo real OFF';
+  b.classList.toggle('on', liveOn);
+  b.classList.toggle('primary', liveOn);
+}
+function applyLivePos(data) {
+  if (!data || !Number.isFinite(data.x) || !Number.isFinite(data.z)) return;
+  let X = data.x, Z = data.z, Y = Number.isFinite(data.y) ? data.y : null;
+  let yaw = Number.isFinite(data.yaw) ? data.yaw : null;
+  let note = '';
+  const world = String(data.world || '').toLowerCase();
+  if (world.includes('nether')) { X *= 8; Z *= 8; note = 'Estás en el Nether: convertido ×8 a coordenadas del Overworld.'; }
+  else if (world.includes('end')) { note = 'Estás en el End: el mapa es del Overworld (posición no convertida).'; }
+  const p = { X, Y, Z, yaw, note, username: data.username || null };
+  // Objetivo para interpolar (no saltar de golpe)
+  meTarget = p;
+  if (!S.me) {
+    S.me = { X, Y, Z, yaw, note };
+  }
+  const c = S.cfg, inside = p.X >= c.xmin && p.X <= c.xmax && p.Z >= c.zmin && p.Z <= c.zmax;
+  const el = $('posout');
+  el.classList.remove('muted', 'err');
+  let html = `<span class="me">● En vivo</span> <b>X ${f1(p.X)}</b> · <b>Z ${f1(p.Z)}</b>` + (p.Y !== null ? ` · Y ${f1(p.Y)}` : '');
+  if (p.yaw !== null) html += ` · mirando al <b>${compass(-Math.sin(p.yaw * Math.PI / 180), Math.cos(p.yaw * Math.PI / 180))}</b>`;
+  if (p.username) html += ` · <span class="muted">${esc(p.username)}</span>`;
+  if (p.note) html += `<br>${esc(p.note)}`;
+  if (!inside) html += '<br>⚠ Estás fuera de los límites del mapa.';
+  el.innerHTML = html;
+  // Pedir centrado suave si "Centrar en mí"
+  const follow = $('livefollow') && $('livefollow').checked;
+  if (follow && inside) {
+    requestLiveCenter(p.X, p.Z);
+  }
+  ensureAnim();
+}
+let liveZoomDirty = true;
+let meTarget = null;          // última posición real del API
+let camGoal = null;           // { ox, oy, z } objetivo de cámara
+let animRaf = 0;
+const LERP_POS = 0.18;        // suavidad del marcador (0–1 por frame ~60fps)
+const LERP_CAM = 0.12;        // suavidad de la cámara
+const LERP_YAW = 0.2;
+
+function lerp(a, b, t) { return a + (b - a) * t; }
+function lerpAngle(a, b, t) {
+  // yaw en grados, camino más corto
+  let d = ((b - a + 540) % 360) - 180;
+  return a + d * t;
+}
+function applyLiveZoomOnce() {
+  if (!($('livezoom') && $('livezoom').checked)) return null;
+  const mult = Math.max(1, Math.min(32, Number($('livez').value) || 4));
+  return Math.min(64, Math.max(S.fit * 0.5, S.fit * mult));
+}
+function requestLiveCenter(X, Z) {
+  const [px, py] = mcToPx(X, Z);
+  // zoom objetivo solo si el usuario lo pidió
+  let zGoal = S.z;
+  if (liveZoomDirty) {
+    const w = applyLiveZoomOnce();
+    if (w != null) { zGoal = w; liveZoomDirty = false; }
+  }
+  // Calcular ox/oy que centrarían al jugador con el zoom actual (o el objetivo)
+  // imgToScr usa S.z/S.ox/S.oy actuales; calculamos el offset necesario con zGoal
+  const cx = px + .5, cy = py + .5;
+  const u = S.fh ? S.W - cx : cx;
+  const v = S.fv ? S.H - cy : cy;
+  const ox = stage.clientWidth / 2 - zGoal * u;
+  const oy = stage.clientHeight / 2 - zGoal * v;
+  camGoal = { ox, oy, z: zGoal };
+  ensureAnim();
+}
+function ensureAnim() {
+  if (animRaf) return;
+  let last = performance.now();
+  const tick = (now) => {
+    animRaf = 0;
+    const dt = Math.min(40, now - last); last = now;
+    // factor adaptado a frame time (base 16.7ms)
+    const kPos = 1 - Math.pow(1 - LERP_POS, dt / 16.7);
+    const kCam = 1 - Math.pow(1 - LERP_CAM, dt / 16.7);
+    const kYaw = 1 - Math.pow(1 - LERP_YAW, dt / 16.7);
+    let moving = false;
+
+    // Interpolación del marcador
+    if (meTarget && S.me) {
+      const dx = meTarget.X - S.me.X, dz = meTarget.Z - S.me.Z;
+      if (Math.abs(dx) > 0.01 || Math.abs(dz) > 0.01) {
+        S.me.X = lerp(S.me.X, meTarget.X, kPos);
+        S.me.Z = lerp(S.me.Z, meTarget.Z, kPos);
+        moving = true;
+      } else {
+        S.me.X = meTarget.X; S.me.Z = meTarget.Z;
+      }
+      if (meTarget.Y != null) S.me.Y = meTarget.Y;
+      if (meTarget.yaw != null) {
+        if (S.me.yaw == null) S.me.yaw = meTarget.yaw;
+        else {
+          const ny = lerpAngle(S.me.yaw, meTarget.yaw, kYaw);
+          if (Math.abs(((meTarget.yaw - S.me.yaw + 540) % 360) - 180) > 0.3) moving = true;
+          S.me.yaw = ny;
+        }
+      }
+      S.me.note = meTarget.note;
+    }
+
+    // Interpolación de cámara
+    if (camGoal) {
+      const dox = camGoal.ox - S.ox, doy = camGoal.oy - S.oy, dz = camGoal.z - S.z;
+      if (Math.abs(dox) > 0.15 || Math.abs(doy) > 0.15 || Math.abs(dz) > 0.0005) {
+        S.ox = lerp(S.ox, camGoal.ox, kCam);
+        S.oy = lerp(S.oy, camGoal.oy, kCam);
+        S.z = lerp(S.z, camGoal.z, kCam);
+        moving = true;
+      } else {
+        S.ox = camGoal.ox; S.oy = camGoal.oy; S.z = camGoal.z;
+        // si no estamos en follow activo, soltar el goal
+        if (!(liveOn && $('livefollow') && $('livefollow').checked)) camGoal = null;
+      }
+    }
+
+    draw();
+    // Seguir animando si hay movimiento o live activo (para reaccionar al siguiente poll)
+    if (moving || (liveOn && (meTarget || camGoal))) {
+      animRaf = requestAnimationFrame(tick);
+    }
+  };
+  animRaf = requestAnimationFrame(tick);
+}
+async function pollLive() {
+  if (!liveOn) return;
+  const url = `http://127.0.0.1:${livePort()}/api/coords`;
+  try {
+    const r = await fetch(url, { cache: 'no-store', mode: 'cors' });
+    if (r.status === 404) {
+      liveFail++;
+      $('posout').classList.remove('muted'); $('posout').classList.add('err');
+      $('posout').textContent = 'Mod activo pero no estás en un mundo. Entra a un mundo.';
+      return;
+    }
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const data = await r.json();
+    liveFail = 0;
+    applyLivePos(data);
+  } catch (e) {
+    liveFail++;
+    if (liveFail >= 2) {
+      const el = $('posout');
+      el.classList.remove('muted'); el.classList.add('err');
+      el.innerHTML = 'No se puede conectar a <code>http://127.0.0.1:' + livePort() + '/api/coords</code>.<br>' +
+        '1. Instala el mod <b>PlayerCoordsAPI</b> (Fabric, versión 26.1.2)<br>' +
+        '2. Abre el mapa en local (no desde GitHub Pages por mixed-content)<br>' +
+        '3. En Mod Menu del mod: activa API y CORS en «Allow all» o «Local origins»';
+    }
+  }
+}
+function startLive() {
+  if (liveTimer) clearInterval(liveTimer);
+  liveOn = true; setLiveUI(); liveFail = 0;
+  liveZoomDirty = true;
+  meTarget = null; camGoal = null;
+  pollLive();
+  liveTimer = setInterval(pollLive, 400);
+  saveLivePrefs(true);
+  ensureAnim();
+}
+function livePrefs() {
+  return {
+    on: liveOn,
+    port: livePort(),
+    follow: !($('livefollow') && !$('livefollow').checked),
+    zoomOn: !!( $('livezoom') && $('livezoom').checked ),
+    zoomMult: Math.max(1, Math.min(32, Number($('livez') && $('livez').value) || 4))
+  };
+}
+function saveLivePrefs(on) {
+  try {
+    const p = livePrefs();
+    if (typeof on === 'boolean') p.on = on;
+    localStorage.setItem(LIVE_KEY, JSON.stringify(p));
+  } catch (e) {}
+}
+function stopLive() {
+  liveOn = false; setLiveUI();
+  if (liveTimer) { clearInterval(liveTimer); liveTimer = null; }
+  camGoal = null;
+  saveLivePrefs(false);
+  if (!S.me || !$('pos').value.trim()) {
+    meTarget = null;
+    $('posout').className = 'posout muted small';
+    $('posout').textContent = 'Pega aquí lo que te da F3+C o escribe las coordenadas a mano. O activa Tiempo real con el mod instalado.';
+  }
+}
+$('livetoggle').onclick = () => { if (liveOn) stopLive(); else startLive(); };
+$('liveport').onchange = () => {
+  saveLivePrefs(liveOn);
+  if (liveOn) { stopLive(); startLive(); }
+};
+['livefollow', 'livezoom', 'livez'].forEach(id => {
+  const el = $(id);
+  if (!el) return;
+  el.onchange = el.oninput = () => {
+    if (id === 'livezoom' || id === 'livez') liveZoomDirty = true;
+    saveLivePrefs(liveOn);
+    if (liveOn && S.me && $('livefollow') && $('livefollow').checked) {
+      requestLiveCenter(S.me.X, S.me.Z);
+    }
+  };
+});
+try {
+  const ld = JSON.parse(localStorage.getItem(LIVE_KEY) || 'null');
+  if (ld) {
+    if (ld.port) $('liveport').value = ld.port;
+    if ($('livefollow') && typeof ld.follow === 'boolean') $('livefollow').checked = ld.follow;
+    if ($('livezoom') && typeof ld.zoomOn === 'boolean') $('livezoom').checked = ld.zoomOn;
+    if ($('livez') && ld.zoomMult) $('livez').value = ld.zoomMult;
+    if (ld.on) setTimeout(startLive, 800);
+  }
+} catch (e) {}
+setLiveUI();
+
+setLiveUI();
+
+/* ---- Multijugador: posiciones compartidas vía relay ---- */
+const MP_KEY = KEY + '.mp';
+const MP_COLORS = ['#f472b6', '#a78bfa', '#34d399', '#fbbf24', '#60a5fa', '#fb7185', '#2dd4bf', '#c084fc', '#4ade80', '#f97316'];
+let mpOn = false, mpTimer = null, mpFail = 0;
+let mpId = null;
+try { mpId = localStorage.getItem(MP_KEY + '.id'); } catch (e) {}
+if (!mpId) {
+  mpId = (crypto.randomUUID ? crypto.randomUUID() : ('p' + Math.random().toString(36).slice(2) + Date.now()));
+  try { localStorage.setItem(MP_KEY + '.id', mpId); } catch (e) {}
+}
+// targets interpolados de otros jugadores
+const othersTarget = {}; // id -> {X,Z,yaw,name,color,ts}
+
+function hashColor(s) {
+  let h = 0; for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
+  return MP_COLORS[Math.abs(h) % MP_COLORS.length];
+}
+function mpServer() {
+  const u = ($('mpserver') && $('mpserver').value || '').trim().replace(/\/$/, '');
+  return u;
+}
+function mpRoom() {
+  return (($('mproom') && $('mproom').value) || 'hoplite').trim().toLowerCase().replace(/[^a-z0-9_-]/g, '').slice(0, 32) || 'hoplite';
+}
+function mpName() {
+  const n = (($('mpname') && $('mpname').value) || '').trim().slice(0, 24);
+  return n || 'Jugador';
+}
+function setMpUI() {
+  const b = $('mptoggle');
+  if (!b) return;
+  b.textContent = mpOn ? 'Compartir ON' : 'Compartir OFF';
+  b.classList.toggle('on', mpOn);
+  b.classList.toggle('primary', mpOn);
+}
+function drawPlayerMarker(X, Z, yaw, color, label, isMe) {
+  const [px, py] = mcToPx(X, Z);
+  if (!(px >= 0 && py >= 0 && px <= S.W - 1 && py <= S.H - 1)) return;
+  const [x, y] = imgToScr(px + .5, py + .5);
+  ctx.save();
+  ctx.lineWidth = isMe ? 3 : 2;
+  ctx.strokeStyle = '#000';
+  ctx.fillStyle = color;
+  if (yaw != null && Number.isFinite(yaw)) {
+    const r = yaw * Math.PI / 180, dx = -Math.sin(r), dz = Math.cos(r);
+    const [bx, by] = mcToPx(X + dx, Z + dz), [tx, ty] = imgToScr(bx + .5, by + .5);
+    const a = Math.atan2(ty - y, tx - x);
+    ctx.translate(x, y); ctx.rotate(a);
+    ctx.beginPath(); ctx.moveTo(isMe ? 20 : 16, 0); ctx.lineTo(isMe ? 7 : 5, isMe ? -8 : -6); ctx.lineTo(isMe ? 7 : 5, isMe ? 8 : 6); ctx.closePath();
+    ctx.stroke(); ctx.fill();
+    ctx.setTransform(S.dpr, 0, 0, S.dpr, 0, 0);
+  }
+  ctx.beginPath(); ctx.arc(x, y, isMe ? 8 : 6, 0, 7); ctx.stroke(); ctx.fill();
+  ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(x, y, isMe ? 3 : 2, 0, 7); ctx.fill();
+  if (label && S.z > S.fit * 1.5) {
+    ctx.font = '12px Monocraft, ui-monospace, monospace';
+    ctx.lineWidth = 3; ctx.strokeStyle = '#000';
+    ctx.strokeText(label, x + 10, y - 10);
+    ctx.fillStyle = '#fff'; ctx.fillText(label, x + 10, y - 10);
+  }
+  ctx.restore();
+}
+function drawOthers() {
+  if ($('mpshow') && !$('mpshow').checked) return;
+  const myName = mpName();
+  Object.keys(S.others).forEach(id => {
+    if (id === mpId) return; // yo ya me dibujo con drawMe
+    const o = S.others[id];
+    if (!o) return;
+    drawPlayerMarker(o.X, o.Z, o.yaw, o.color || '#f472b6', o.name || '?', false);
+  });
+}
+// Redibujar drawMe usando color fijo cyan (ya existe); ok
+
+function renderMpList() {
+  const el = $('mplist');
+  if (!el) return;
+  const rows = [];
+  if (S.me && mpOn) {
+    rows.push({ id: mpId, name: mpName(), X: S.me.X, Z: S.me.Z, self: true, color: '#22d3ee' });
+  }
+  Object.keys(S.others).forEach(id => {
+    if (id === mpId) return;
+    const o = S.others[id];
+    if (o) rows.push({ id, name: o.name, X: o.X, Z: o.Z, self: false, color: o.color });
+  });
+  if (!rows.length) { el.innerHTML = ''; return; }
+  el.innerHTML = '<div style="margin-top:4px;font-weight:700">En la sala</div>' + rows.map(r => {
+    const tag = r.self ? ' (tú)' : '';
+    return `<div class="it" style="border-left:3px solid ${r.color};padding-left:8px;margin:3px 0;cursor:pointer" data-x="${r.X}" data-z="${r.Z}">
+      <b style="color:${r.color}">${esc(r.name)}</b>${tag}
+      <span class="muted"> · X ${f1(r.X)} Z ${f1(r.Z)}</span>
+    </div>`;
+  }).join('');
+  el.querySelectorAll('.it').forEach(n => {
+    n.onclick = () => {
+      const X = Number(n.dataset.x), Z = Number(n.dataset.z);
+      if (!Number.isFinite(X)) return;
+      const [px, py] = mcToPx(X, Z);
+      // centrar suave
+      requestLiveCenter(X, Z);
+    };
+  });
+}
+
+function mergeOthersFromServer(list) {
+  const now = Date.now();
+  const seen = new Set();
+  (list || []).forEach(p => {
+    if (!p || !p.id || p.id === mpId) return;
+    if (!Number.isFinite(p.x) || !Number.isFinite(p.z)) return;
+    seen.add(p.id);
+    let X = p.x, Z = p.z;
+    const world = String(p.world || '').toLowerCase();
+    if (world.includes('nether')) { X *= 8; Z *= 8; }
+    const color = p.color || hashColor(p.name || p.id);
+    othersTarget[p.id] = { X, Z, yaw: Number.isFinite(p.yaw) ? p.yaw : null, name: String(p.name || 'Jugador').slice(0, 24), color, ts: now };
+    if (!S.others[p.id]) {
+      S.others[p.id] = { X, Z, yaw: othersTarget[p.id].yaw, name: othersTarget[p.id].name, color };
+    }
+  });
+  // limpiar ausentes / viejos
+  Object.keys(othersTarget).forEach(id => {
+    if (!seen.has(id) || now - othersTarget[id].ts > 15000) {
+      delete othersTarget[id];
+      delete S.others[id];
+    }
+  });
+  ensureAnim();
+  renderMpList();
+}
+
+// Extender el tick de animación para interpolar otros jugadores
+// Parcheamos ensureAnim insertando lógica de others dentro — mejor: función aparte llamada desde draw loop
+const _ensureAnimOrig = typeof ensureAnim === 'function' ? ensureAnim : null;
+
+// Reemplazamos ensureAnim con versión que también interpola others
+function lerpOthers(kPos, kYaw) {
+  let moving = false;
+  Object.keys(othersTarget).forEach(id => {
+    const t = othersTarget[id];
+    let o = S.others[id];
+    if (!o) {
+      S.others[id] = { X: t.X, Z: t.Z, yaw: t.yaw, name: t.name, color: t.color };
+      moving = true;
+      return;
+    }
+    const dx = t.X - o.X, dz = t.Z - o.Z;
+    if (Math.abs(dx) > 0.01 || Math.abs(dz) > 0.01) {
+      o.X = lerp(o.X, t.X, kPos);
+      o.Z = lerp(o.Z, t.Z, kPos);
+      moving = true;
+    } else { o.X = t.X; o.Z = t.Z; }
+    if (t.yaw != null) {
+      if (o.yaw == null) o.yaw = t.yaw;
+      else {
+        const d = ((t.yaw - o.yaw + 540) % 360) - 180;
+        if (Math.abs(d) > 0.3) moving = true;
+        o.yaw = lerpAngle(o.yaw, t.yaw, kYaw);
+      }
+    }
+    o.name = t.name; o.color = t.color;
+  });
+  // quitar de S.others los que ya no están en target
+  Object.keys(S.others).forEach(id => {
+    if (!othersTarget[id]) delete S.others[id];
+  });
+  return moving;
+}
+
+// Monkey-patch: wrap existing ensureAnim body by redefining it
+// (ensureAnim ya está definida arriba; la redefinimos completa aquí con others)
+ensureAnim = function ensureAnim() {
+  if (animRaf) return;
+  let last = performance.now();
+  const tick = (now) => {
+    animRaf = 0;
+    const dt = Math.min(40, now - last); last = now;
+    const kPos = 1 - Math.pow(1 - LERP_POS, dt / 16.7);
+    const kCam = 1 - Math.pow(1 - LERP_CAM, dt / 16.7);
+    const kYaw = 1 - Math.pow(1 - LERP_YAW, dt / 16.7);
+    let moving = false;
+
+    if (meTarget && S.me) {
+      const dx = meTarget.X - S.me.X, dz = meTarget.Z - S.me.Z;
+      if (Math.abs(dx) > 0.01 || Math.abs(dz) > 0.01) {
+        S.me.X = lerp(S.me.X, meTarget.X, kPos);
+        S.me.Z = lerp(S.me.Z, meTarget.Z, kPos);
+        moving = true;
+      } else {
+        S.me.X = meTarget.X; S.me.Z = meTarget.Z;
+      }
+      if (meTarget.Y != null) S.me.Y = meTarget.Y;
+      if (meTarget.yaw != null) {
+        if (S.me.yaw == null) S.me.yaw = meTarget.yaw;
+        else {
+          const ny = lerpAngle(S.me.yaw, meTarget.yaw, kYaw);
+          if (Math.abs(((meTarget.yaw - S.me.yaw + 540) % 360) - 180) > 0.3) moving = true;
+          S.me.yaw = ny;
+        }
+      }
+      S.me.note = meTarget.note;
+    }
+
+    if (lerpOthers(kPos, kYaw)) moving = true;
+
+    if (camGoal) {
+      const dox = camGoal.ox - S.ox, doy = camGoal.oy - S.oy, dz = camGoal.z - S.z;
+      if (Math.abs(dox) > 0.15 || Math.abs(doy) > 0.15 || Math.abs(dz) > 0.0005) {
+        S.ox = lerp(S.ox, camGoal.ox, kCam);
+        S.oy = lerp(S.oy, camGoal.oy, kCam);
+        S.z = lerp(S.z, camGoal.z, kCam);
+        moving = true;
+      } else {
+        S.ox = camGoal.ox; S.oy = camGoal.oy; S.z = camGoal.z;
+        if (!(liveOn && $('livefollow') && $('livefollow').checked)) camGoal = null;
+      }
+    }
+
+    draw();
+    if (moving || liveOn || mpOn || camGoal || meTarget) {
+      animRaf = requestAnimationFrame(tick);
+    }
+  };
+  animRaf = requestAnimationFrame(tick);
+};
+
+async function mpPushAndPull() {
+  if (!mpOn) return;
+  const base = mpServer();
+  const room = mpRoom();
+  if (!base) {
+    $('mpout').className = 'posout err small';
+    $('mpout').textContent = 'Falta la URL del relay.';
+    return;
+  }
+  // Posición a enviar: preferir meTarget (real) o S.me
+  const src = meTarget || S.me;
+  try {
+    if (src && Number.isFinite(src.X) && Number.isFinite(src.Z)) {
+      const body = {
+        id: mpId,
+        name: mpName(),
+        x: src.X, y: src.Y, z: src.Z,
+        yaw: src.yaw,
+        world: 'minecraft:overworld', // ya convertimos nether en applyLivePos
+        color: '#22d3ee',
+        ts: Date.now()
+      };
+      // Nota: si venimos del nether ya está *8 en X/Z; el receptor no vuelve a multiplicar si world=overworld
+      await fetch(`${base}/room/${encodeURIComponent(room)}/player`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+        mode: 'cors',
+        cache: 'no-store'
+      });
+    }
+    const r = await fetch(`${base}/room/${encodeURIComponent(room)}`, { cache: 'no-store', mode: 'cors' });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const data = await r.json();
+    mpFail = 0;
+    mergeOthersFromServer(data.players || data || []);
+    const n = Object.keys(S.others).length + (src ? 1 : 0);
+    $('mpout').className = 'posout small';
+    $('mpout').innerHTML = `<span class="me">● Sala</span> <b>${esc(room)}</b> · ${n} jugador${n === 1 ? '' : 'es'} · relay ok`;
+  } catch (e) {
+    mpFail++;
+    if (mpFail >= 2) {
+      $('mpout').className = 'posout err small';
+      $('mpout').innerHTML = `No hay conexión con el relay.<br>Comprueba la URL y que el servidor esté en marcha.<br><code>${esc(base)}</code>`;
+    }
+  }
+}
+
+function startMp() {
+  if (!mpServer()) {
+    $('mpout').className = 'posout err small';
+    $('mpout').textContent = 'Escribe la URL del relay (ej. https://tu-app.onrender.com)';
+    return;
+  }
+  if (!($('mpname').value || '').trim()) {
+    $('mpout').className = 'posout err small';
+    $('mpout').textContent = 'Pon tu nombre para que los demás te reconozcan.';
+    return;
+  }
+  // Si no hay tiempo real local, aún puedes recibir a otros, pero no enviarás coords útiles
+  mpOn = true; setMpUI(); mpFail = 0;
+  mpPushAndPull();
+  if (mpTimer) clearInterval(mpTimer);
+  mpTimer = setInterval(mpPushAndPull, 800);
+  saveMpPrefs(true);
+  ensureAnim();
+  // Aviso si live está off
+  if (!liveOn) {
+    $('mpout').className = 'posout small';
+    $('mpout').innerHTML = 'Compartiendo… Activa también <b>Tiempo real</b> para enviar tu posición del juego.';
+  }
+}
+function stopMp() {
+  mpOn = false; setMpUI();
+  if (mpTimer) { clearInterval(mpTimer); mpTimer = null; }
+  // opcional: borrar del servidor
+  const base = mpServer(), room = mpRoom();
+  if (base) {
+    fetch(`${base}/room/${encodeURIComponent(room)}/player/${encodeURIComponent(mpId)}`, { method: 'DELETE', mode: 'cors' }).catch(() => {});
+  }
+  saveMpPrefs(false);
+  renderMpList();
+}
+function saveMpPrefs(on) {
+  try {
+    localStorage.setItem(MP_KEY, JSON.stringify({
+      on: !!on,
+      name: ($('mpname') && $('mpname').value) || '',
+      room: ($('mproom') && $('mproom').value) || '',
+      server: ($('mpserver') && $('mpserver').value) || '',
+      show: !($('mpshow') && !$('mpshow').checked)
+    }));
+  } catch (e) {}
+}
+$('mptoggle').onclick = () => { if (mpOn) stopMp(); else startMp(); };
+$('mpshow').onchange = () => { saveMpPrefs(mpOn); draw(); };
+['mpname', 'mproom', 'mpserver'].forEach(id => {
+  const el = $(id); if (el) el.onchange = el.oninput = () => saveMpPrefs(mpOn);
+});
+try {
+  const d = JSON.parse(localStorage.getItem(MP_KEY) || 'null');
+  if (d) {
+    if (d.name && $('mpname')) $('mpname').value = d.name;
+    if (d.room && $('mproom')) $('mproom').value = d.room;
+    if (d.server && $('mpserver')) $('mpserver').value = d.server;
+    if ($('mpshow') && typeof d.show === 'boolean') $('mpshow').checked = d.show;
+    if (d.on) setTimeout(startMp, 1000);
+  }
+} catch (e) {}
+setMpUI();
 
 /* ---- Explorar zona + Mejor zona ---- */
 const TIER_PTS = { 1: 7, 2: 3, 3: 1 };

@@ -30,7 +30,29 @@
       <h2>Mi posición</h2>
       <input id="pos" type="text" placeholder="Pega F3+C o escribe: 25 2 · X: 25, Z: 2 · 25 74 2" autocomplete="off" spellcheck="false">
       <div class="row"><button id="posgo" class="primary">Ubicarme</button><button id="posclr">Quitar</button></div>
-      <div id="posout" class="posout muted small">Pega aquí lo que te da F3+C (<code>/execute in … run tp @s X Y Z …</code>) o escribe las coordenadas a mano.</div>
+      <div class="row" style="margin-top:10px;align-items:center">
+        <button id="livetoggle">Tiempo real OFF</button>
+        <label class="chk" title="Centra el mapa en ti al moverte (sin forzar el zoom)"><input type="checkbox" id="livefollow" checked> Centrar en mí</label>
+      </div>
+      <div class="row" style="margin-top:8px;align-items:center;gap:10px">
+        <label class="chk" title="Al centrar, aplica este zoom (1 = ajuste al mapa, 4 = cerca)"><input type="checkbox" id="livezoom"> Zoom al centrar</label>
+        <label style="flex-direction:row;align-items:center;gap:6px;margin:0;color:var(--mut)">× <input id="livez" type="number" min="1" max="32" step="0.5" value="4" style="width:56px;padding:4px 6px" title="Multiplicador respecto al zoom de ajuste (fit)"></label>
+      </div>
+      <p class="muted small" style="margin-top:6px">Puerto API local: <input id="liveport" type="number" min="1" max="65535" value="25565" style="width:72px;display:inline-block;padding:4px 6px"> · mod <b>PlayerCoordsAPI</b></p>
+      <div id="posout" class="posout muted small">Pega F3+C o activa <b>Tiempo real</b> con el mod.</div>
+    </section>
+    <section>
+      <h2>Jugadores (multijugador)</h2>
+      <p class="muted small">Cada uno en su casa: compartís sala y veis las posiciones de todos en el mapa.</p>
+      <label>Tu nombre<input id="mpname" type="text" maxlength="24" placeholder="Steve" autocomplete="nickname"></label>
+      <label style="margin-top:8px">Código de sala<input id="mproom" type="text" maxlength="32" placeholder="hoplite" autocomplete="off" spellcheck="false"></label>
+      <label style="margin-top:8px">URL del relay<input id="mpserver" type="text" placeholder="https://tu-relay.onrender.com" autocomplete="off" spellcheck="false"></label>
+      <div class="row" style="margin-top:10px;align-items:center">
+        <button id="mptoggle">Compartir OFF</button>
+        <label class="chk"><input type="checkbox" id="mpshow" checked> Ver a otros</label>
+      </div>
+      <div id="mpout" class="posout muted small" style="margin-top:8px">Pon nombre + sala + URL del relay y pulsa <b>Compartir</b>.</div>
+      <div id="mplist" class="zl small" style="margin-top:8px"></div>
     </section>
     <section>
       <h2>Coordenadas</h2>
